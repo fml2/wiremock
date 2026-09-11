@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    api(project(":wiremock-common"))
+    api(project(":wiremock-core"))
 
     api(platform(libs.junit.bom))
     api(libs.junit.jupiter.api)
@@ -19,6 +19,7 @@ dependencies {
     testRuntimeOnly(libs.jetty.http)
     testRuntimeOnly(libs.junit.jupiter)
     testRuntimeOnly(project(":wiremock-jetty"))
+    testImplementation(project(":wiremock-httpclient-apache5"))
 }
 
 tasks.jar {

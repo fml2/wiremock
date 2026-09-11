@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2025 Thomas Akehurst
+ * Copyright (C) 2011-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -161,7 +161,7 @@ public class WireMockHandlerDispatchingServlet extends HttpServlet {
     private final HttpServletRequest httpServletRequest;
     private final HttpServletResponse httpServletResponse;
 
-    public ServletHttpResponder(
+    private ServletHttpResponder(
         HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
       this.httpServletRequest = httpServletRequest;
       this.httpServletResponse = httpServletResponse;
@@ -206,6 +206,7 @@ public class WireMockHandlerDispatchingServlet extends HttpServlet {
       return response.getInitialDelay() > 0 || response.shouldAddChunkedDribbleDelay();
     }
 
+    @SuppressWarnings("FutureReturnValueIgnored")
     private void respondAsync(final Request request, final Response response) {
       final AsyncContext asyncContext = httpServletRequest.startAsync();
       scheduledExecutorService.schedule(
@@ -258,14 +259,15 @@ public class WireMockHandlerDispatchingServlet extends HttpServlet {
     if ((chunkedEncodingPolicy == NEVER
             || (chunkedEncodingPolicy == BODY_FILE && response.hasInlineBody()))
         && httpServletResponse.getHeader(CONTENT_LENGTH) == null) {
-      httpServletResponse.setContentLength(response.getBody().length);
+      httpServletResponse.setContentLength(response.getBodyEntity().getData().length);
     }
 
+    final InputStream bodyStream = response.getBodyEntity().getStreamSource().getStream();
     if (response.shouldAddChunkedDribbleDelay()) {
       writeAndTranslateExceptionsWithChunkedDribbleDelay(
-          httpServletResponse, response.getBodyStream(), response.getChunkedDribbleDelay());
+          httpServletResponse, bodyStream, response.getChunkedDribbleDelay());
     } else {
-      writeAndTranslateExceptions(httpServletResponse, response.getBodyStream());
+      writeAndTranslateExceptions(httpServletResponse, bodyStream);
     }
   }
 
@@ -326,7 +328,8 @@ public class WireMockHandlerDispatchingServlet extends HttpServlet {
       HttpServletResponse httpServletResponse,
       Request request)
       throws ServletException, IOException {
-    String forwardUrl = wiremockFileSourceRoot + WireMockApp.FILES_ROOT + request.getUrl();
+    String forwardUrl =
+        wiremockFileSourceRoot + WireMockApp.FILES_ROOT + request.getPathAndQueryWithoutPrefix();
     RequestDispatcher dispatcher =
         httpServletRequest.getRequestDispatcher(decode(forwardUrl, UTF_8));
     dispatcher.forward(httpServletRequest, httpServletResponse);

@@ -23,15 +23,44 @@ plugins {
 }
 
 dependencies {
-  api(project(":wiremock-common"))
-  testImplementation(project(":wiremock-junit5"))
+  api(project(":wiremock-core"))
   api(project(":wiremock-jetty"))
+  implementation(project(":wiremock-httpclient-apache5"))
+  implementation(project(":wiremock-url:wiremock-url"))
+
+  implementation(libs.jopt.simple)
+
+  testFixturesApi(project(":wiremock-core"))
+
+  testFixturesApi(libs.apache.http5.client)
+  testFixturesApi(libs.apache.http5.core)
+  testFixturesApi(libs.guava)
+  testFixturesApi(libs.hamcrest)
+  testFixturesApi(libs.handlebars)
+  testFixturesApi(libs.jakarta.servlet.api)
+  testFixturesApi(libs.jakarta.websockets)
+  testFixturesApi(libs.jsonassert)
+  testFixturesApi(libs.junit.jupiter.api)
+
+  testFixturesImplementation(platform(libs.jetty.bom))
+  testFixturesImplementation(libs.jetty.util)
+  testFixturesImplementation(platform(libs.junit.bom))
+  testFixturesImplementation(libs.mockito.core)
+  testFixturesImplementation(libs.xmlunit.core)
+  testFixturesImplementation(libs.awaitility)
+
+  testImplementation(platform(libs.okhttp.bom))
+  testImplementation(libs.okhttp)
+
+  testImplementation(project(":wiremock-junit5"))
   testImplementation(libs.apache.http5.client)
   testImplementation(libs.apache.http5.core)
   testImplementation(libs.guava)
   testImplementation(libs.handlebars)
+  testImplementation(libs.commons.lang)
 
   testImplementation(platform(libs.jackson.bom))
+  testImplementation(libs.jackson.core)
   testImplementation(libs.jackson.annotations)
 
   testImplementation(libs.jakarta.servlet.api)
@@ -47,41 +76,17 @@ dependencies {
   testImplementation(libs.xmlunit.core)
   testImplementation(libs.json.unit.core)
 
-  implementation(libs.jopt.simple)
   testImplementation(libs.json.path) {
     // See https://github.com/json-path/JsonPath/issues/224
     exclude(group = "org.ow2.asm", module = "asm")
   }
   testImplementation(libs.slf4j.api)
 
-  // We do not want JUnit on the classpath, users should provide it themselves
-  compileOnly(libs.junit4)
-  compileOnly(platform(libs.junit.bom))
-  compileOnly(libs.junit.jupiter.api)
-  compileOnly(libs.junit.platform.commons)
-
-  testFixturesApi(project(":wiremock-common"))
-
-  testFixturesApi(libs.apache.http5.client)
-  testFixturesApi(libs.apache.http5.core)
-  testFixturesApi(libs.guava)
-  testFixturesApi(libs.hamcrest)
-  testFixturesApi(libs.handlebars)
-  testFixturesApi(libs.jakarta.servlet.api)
-  testFixturesApi(libs.jsonassert)
-
-  testFixturesImplementation(libs.jetty.util)
-  testFixturesImplementation(platform(libs.junit.bom))
-  testFixturesApi(libs.junit.jupiter.api)
-  testFixturesImplementation(libs.mockito.core)
-  testFixturesImplementation(libs.xmlunit.core)
-
   testImplementation(project(":wiremock-junit5"))
   testImplementation(libs.android.json)
   testImplementation(libs.archunit)
   testImplementation(libs.archunit.junit5.api)
   testImplementation(libs.assertj.core)
-  testImplementation(libs.awaitility)
   testImplementation(libs.jackson.databind)
   testImplementation(libs.jetty.client)
   testImplementation(libs.jetty.ee11.webapp)
@@ -97,9 +102,12 @@ dependencies {
   testImplementation(libs.junit.pioneer)
   testImplementation(libs.junit.platform.engine)
   testImplementation(libs.junit.platform.launcher)
+  testImplementation(libs.awaitility)
   testImplementation(libs.mockito.core)
   testImplementation(libs.mockito.junit.jupiter)
   testImplementation(libs.scala.library)
+  testImplementation(libs.bouncycastle.bcpkix)
+  testImplementation(project(":wiremock-core:certificate-generator"))
 
   testRuntimeOnly(files("src/test/resources/classpath file source/classpathfiles.zip", "src/test/resources/classpath-filesource.jar"))
   testRuntimeOnly(files("test-extension/test-extension.jar"))
@@ -181,56 +189,6 @@ tasks.jar {
   }
 }
 
-tasks.shadowJar {
-  archiveBaseName = "wiremock-standalone"
-  archiveClassifier = ""
-  configurations = listOf(
-    project.configurations.runtimeClasspath.get(),
-  )
-
-  relocate("org.mortbay", "wiremock.org.mortbay")
-  relocate("org.eclipse", "wiremock.org.eclipse")
-  relocate("org.codehaus", "wiremock.org.codehaus")
-  relocate("com.google", "wiremock.com.google")
-  relocate("com.google.thirdparty", "wiremock.com.google.thirdparty")
-  relocate("com.fasterxml.jackson", "wiremock.com.fasterxml.jackson")
-  relocate("org.apache", "wiremock.org.apache")
-  relocate("org.xmlunit", "wiremock.org.xmlunit")
-  relocate("org.hamcrest", "wiremock.org.hamcrest")
-  relocate("org.skyscreamer", "wiremock.org.skyscreamer")
-  relocate("org.json", "wiremock.org.json")
-  relocate("net.minidev", "wiremock.net.minidev")
-  relocate("com.jayway", "wiremock.com.jayway")
-  relocate("org.objectweb", "wiremock.org.objectweb")
-  relocate("org.custommonkey", "wiremock.org.custommonkey")
-  relocate("net.javacrumbs", "wiremock.net.javacrumbs")
-  relocate("net.sf", "wiremock.net.sf")
-  relocate("com.github.jknack", "wiremock.com.github.jknack")
-  relocate("org.antlr", "wiremock.org.antlr")
-  relocate("jakarta.servlet", "wiremock.jakarta.servlet")
-  relocate("org.checkerframework", "wiremock.org.checkerframework")
-  relocate("org.hamcrest", "wiremock.org.hamcrest")
-  relocate("org.slf4j", "wiremock.org.slf4j")
-  relocate("joptsimple", "wiremock.joptsimple")
-  exclude("joptsimple/HelpFormatterMessages.properties")
-  relocate("org.yaml", "wiremock.org.yaml")
-  relocate("com.ethlo", "wiremock.com.ethlo")
-  relocate("com.networknt", "wiremock.com.networknt")
-  relocate("org.jspecify", "wiremock.org.jspecify")
-
-  dependencies {
-    exclude(dependency("junit:junit"))
-  }
-
-  mergeServiceFiles()
-
-  exclude("META-INF/maven/**")
-  exclude("META-INF/versions/17/**")
-  exclude("META-INF/versions/21/**")
-  exclude("META-INF/versions/22/**")
-  exclude("module-info.class")
-  exclude("handlebars-*.js")
-}
 
 publishing {
   publications {
@@ -242,21 +200,6 @@ publishing {
       pom {
         name = "WireMock"
         description = "A web service test double for all occasions"
-      }
-    }
-
-    create<MavenPublication>("standaloneJar") {
-      artifactId = "${tasks.jar.get().archiveBaseName.get()}-standalone"
-      project.shadow.component(this)
-
-      artifact(tasks.named("sourcesJar"))
-      artifact(tasks.named("javadocJar"))
-      artifact(testJar)
-
-      pom.packaging = "jar"
-      pom {
-        name = "WireMock"
-        description = "A web service test double for all occasions - standalone edition"
       }
     }
   }
@@ -284,7 +227,6 @@ val addGitTag by tasks.registering {
 tasks.publish {
   dependsOn(
     checkReleasePreconditions,
-    "signStandaloneJarPublication",
     "signMavenJavaPublication",
   )
 }
@@ -294,25 +236,25 @@ tasks.withType<AbstractPublishToMaven>().configureEach {
 }
 
 tasks.assemble {
-  dependsOn(tasks.jar, tasks.shadowJar)
+  dependsOn(tasks.jar)
 }
 
 tasks.register("release") {
-  dependsOn(tasks.clean, tasks.assemble, tasks.publish, addGitTag)
+  dependsOn(tasks.clean, tasks.assemble, tasks.publish, ":wiremock-standalone:publish", addGitTag)
 }
 
 tasks.register("localRelease") {
   dependsOn(tasks.clean, tasks.assemble, tasks.publishToMavenLocal)
+  dependsOn(subprojects.filter { it.plugins.hasPlugin("maven-publish") }.map { "${it.path}:publishToMavenLocal" })
 }
 
 fun updateFiles(currentVersion: String, nextVersion: String) {
 
   val filesWithVersion: Map<String, (String) -> String> = mapOf(
-    "buildSrc/src/main/kotlin/wiremock.common-conventions.gradle.kts"    to { "version = \"${it}\"" },
     "ui/package.json"                                                    to { "\"version\": \"${it}\"" },
-    "wiremock-common/src/main/resources/version.properties"              to { "version=${it}" },
-    "wiremock-common/src/main/resources/swagger/wiremock-admin-api.json" to { "\"version\": \"${it}\"" },
-    "wiremock-common/src/main/resources/swagger/wiremock-admin-api.yaml" to { "version: $it" },
+    "wiremock-core/src/main/resources/version.properties"              to { "version=${it}" },
+    "wiremock-core/src/main/resources/swagger/wiremock-admin-api.json" to { "\"version\": \"${it}\"" },
+    "wiremock-core/src/main/resources/swagger/wiremock-admin-api.yaml" to { "version: $it" },
   )
 
   filesWithVersion.forEach { (fileName, lineWithVersionTemplates) ->
@@ -361,14 +303,31 @@ tasks.register("bump-pre-release-version") {
   }
 }
 
+tasks.register("apply-release-version") {
+  doLast {
+    val releaseVersion = requireNotNull(project.findProperty("releaseVersion")?.toString()) {
+      "releaseVersion property must be specified (e.g. -PreleaseVersion=4.0.1)"
+    }
+    updateFiles("0.0.0-dev", releaseVersion)
+  }
+}
+
 tasks.register("set-snapshot-version") {
   doLast {
-
-    val currentVersion = Version.fromString(project.version.toString())
+    val currentVersionStr = project.version.toString()
     val nextVersion = project.findProperty("snapshotVersion")?.toString()
-      ?: "${currentVersion.incrementMinor()}-SNAPSHOT"
+      ?: run {
+          val baseVersionStr = if (currentVersionStr == "0.0.0-dev") {
+            providers.exec {
+              commandLine("git", "describe", "--tags", "--abbrev=0", "--match=[0-9]*")
+            }.standardOutput.asText.get().trim().removePrefix("v")
+          } else {
+            currentVersionStr
+          }
+          "${Version.fromString(baseVersionStr).incrementMinor()}-SNAPSHOT"
+        }
 
-    updateFiles(currentVersion.toString(), nextVersion)
+    updateFiles(currentVersionStr, nextVersion)
   }
 }
 
@@ -379,7 +338,6 @@ eclipse.classpath.file {
       .filter { it.path.contains("JRE_CONTAINER") }
       .forEach {
         it.entryAttributes["module"] = true
-        it.entryAttributes["add-exports"] = "java.base/sun.security.x509=ALL-UNNAMED"
       }
   }
 }
@@ -430,7 +388,7 @@ dependencyAnalysis {
       onAny {
         exclude(
           ":wiremock-jetty",
-          ":wiremock-common",
+          ":wiremock-core",
         )
       }
     }

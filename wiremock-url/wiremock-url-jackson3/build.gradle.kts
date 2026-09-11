@@ -1,0 +1,41 @@
+plugins {
+  id("wiremock.common-conventions")
+}
+
+tasks.jar {
+  archiveBaseName.set("wiremock-url-jackson3")
+}
+
+dependencies {
+  api(project(":wiremock-url:wiremock-url"))
+  api(project(":wiremock-url:wiremock-string-parser-jackson3"))
+
+  implementation(project(":wiremock-url:wiremock-string-parser"))
+
+  compileOnly("org.jspecify:jspecify:1.0.1")
+
+  testImplementation("tools.jackson.core:jackson-databind:3.0.0")
+  testImplementation(platform("org.junit:junit-bom:5.14.4"))
+  testImplementation(libs.junit.jupiter.api)
+  testImplementation(libs.junit.jupiter.params)
+  testImplementation(libs.assertj.core)
+
+  testImplementation("io.github.classgraph:classgraph:4.8.195")
+
+  testRuntimeOnly(libs.junit.jupiter)
+  testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+publishing {
+  publications {
+    create<MavenPublication>("mavenJava") {
+      artifactId = tasks.jar.get().archiveBaseName.get()
+      from(components["java"])
+
+      pom {
+        name = "WireMock URL Jackson 3"
+        description = "Jackson 3 module for WireMock URL"
+      }
+    }
+  }
+}

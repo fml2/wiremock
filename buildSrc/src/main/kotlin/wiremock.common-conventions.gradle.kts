@@ -1,8 +1,12 @@
-
-import com.vanniktech.maven.publish.SonatypeHost
+import net.ltgt.gradle.errorprone.CheckSeverity
+import net.ltgt.gradle.errorprone.ErrorProneOptions
+import net.ltgt.gradle.errorprone.errorprone
+import org.gradle.accessors.dm.LibrariesForLibs
 import org.gradle.api.JavaVersion.VERSION_17
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 import java.net.URI
+
+val libs = the<LibrariesForLibs>()
 
 plugins {
   `java-library`
@@ -11,16 +15,60 @@ plugins {
   signing
   `maven-publish`
   id("com.diffplug.spotless")
-  id("com.github.johnrengelman.shadow")
+  id("com.gradleup.shadow")
   id("org.sonarqube")
   id("com.vanniktech.maven.publish.base")
+  id("net.ltgt.errorprone")
 }
 
 group = "org.wiremock"
-version = "4.0.0-beta.17"
+version = providers.gradleProperty("releaseVersion").getOrElse("0.0.0-dev")
 
 repositories {
   mavenCentral()
+}
+
+dependencies {
+  val nullawayDep = "com.uber.nullaway:nullaway:0.13.5"
+  annotationProcessor(nullawayDep)
+  testFixturesAnnotationProcessor(nullawayDep)
+  testAnnotationProcessor(nullawayDep)
+  errorprone(libs.errorprone.core)
+}
+
+tasks.compileJava {
+  options.errorprone {
+    defaultErrorProneConfig()
+  }
+}
+
+tasks.compileTestJava {
+  options.errorprone {
+    disableAllChecks = true
+  }
+}
+
+tasks.compileTestFixturesJava {
+  options.errorprone {
+    defaultErrorProneConfig()
+    check("MutablePublicArray", CheckSeverity.OFF)
+    check("JavaUtilDate", CheckSeverity.OFF)
+  }
+}
+
+private fun ErrorProneOptions.defaultErrorProneConfig() {
+  check("NullAway", CheckSeverity.ERROR)
+  check("NullableOptional", CheckSeverity.OFF)
+  check("UndefinedEquals", CheckSeverity.OFF)
+  check("EqualsGetClass", CheckSeverity.OFF)
+  check("StringSplitter", CheckSeverity.OFF)
+  check("InlineFormatString", CheckSeverity.OFF)
+  check("ClassInitializationDeadlock", CheckSeverity.OFF)
+  check("InlineMeSuggester", CheckSeverity.OFF)
+  check("ImmutableEnumChecker", CheckSeverity.OFF)
+  check("MissingSummary", CheckSeverity.OFF)
+  check("MixedMutabilityReturnType", CheckSeverity.OFF)
+  option("NullAway:AnnotatedPackages", "org.wiremock.url")
 }
 
 java {
@@ -32,7 +80,6 @@ java {
 
 tasks.jar {
   manifest {
-    attributes("Add-Exports" to "java.base/sun.security.x509")
     attributes("Implementation-Version" to project.version)
     attributes("Implementation-Title" to "WireMock")
   }
@@ -46,7 +93,6 @@ tasks {
     options.encoding = "UTF-8"
     options.compilerArgs.addAll(listOf(
       "-XDenableSunApiLintControl",
-      "--add-exports=java.base/sun.security.x509=ALL-UNNAMED",
     ))
   }
 
@@ -144,9 +190,10 @@ if (spotlessEnabled) {
         "src/test/resources/filesource/subdir/deepfile.json",
         "src/test/resources/schema-validation/*.json",
         "src/test/resources/test-file-root/mappings/testjsonmapping.json",
+        "src/test/resources/message-stub-test/*.json",
         "src/main/resources/assets/swagger-ui/swagger-ui-dist/package.json"
       )
-      simple().indentWithSpaces(2)
+      gson().indentWithSpaces(2)
     }
   }
 } else {
@@ -193,8 +240,8 @@ signing {
   val signingPassphrase = providers.environmentVariable("OSSRH_GPG_SECRET_KEY_PASSWORD").orElse("").get()
   if (signingKey.isNotEmpty() && signingPassphrase.isNotEmpty()) {
     useInMemoryPgpKeys(signingKey, signingPassphrase)
+    sign(publishing.publications)
   }
-  sign(publishing.publications)
 }
 
 publishing {
@@ -209,24 +256,21 @@ publishing {
     }
   }
 
-  (components["java"] as AdhocComponentWithVariants).withVariantsFromConfiguration(configurations.testFixturesApiElements.get()) { skip() }
-  (components["java"] as AdhocComponentWithVariants).withVariantsFromConfiguration(configurations.testFixturesRuntimeElements.get()) { skip() }
-
-  getComponents().withType<AdhocComponentWithVariants>().forEach { c ->
-    c.withVariantsFromConfiguration(configurations.shadowRuntimeElements.get()) {
-      skip()
-    }
-  }
-
   publications {
     withType<MavenPublication> {
       pom {
         pomInfo()
       }
+      suppressPomMetadataWarningsFor("testFixturesApiElements")
+      suppressPomMetadataWarningsFor("testFixturesRuntimeElements")
     }
   }
 }
 
+shadow {
+  addShadowVariantIntoJavaComponent = false
+}
+
 mavenPublishing {
-  publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+  publishToMavenCentral(automaticRelease = true)
 }

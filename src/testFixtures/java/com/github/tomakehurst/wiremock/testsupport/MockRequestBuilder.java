@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2024 Thomas Akehurst
+ * Copyright (C) 2011-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,17 @@ package com.github.tomakehurst.wiremock.testsupport;
 
 import static com.github.tomakehurst.wiremock.http.HttpHeader.httpHeader;
 import static com.github.tomakehurst.wiremock.http.RequestMethod.GET;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.when;
 
+import com.github.tomakehurst.wiremock.common.entity.CompressionType;
+import com.github.tomakehurst.wiremock.common.entity.Entity;
+import com.github.tomakehurst.wiremock.common.entity.Format;
 import com.github.tomakehurst.wiremock.http.*;
 import java.util.*;
 import org.mockito.Mockito;
+import org.wiremock.url.AbsoluteUrl;
+import org.wiremock.url.PathAndQuery;
 
 public class MockRequestBuilder {
 
@@ -121,6 +127,7 @@ public class MockRequestBuilder {
     final Request request =
         mockName == null ? Mockito.mock(Request.class) : Mockito.mock(Request.class, mockName);
     when(request.getUrl()).thenReturn(url);
+    when(request.getPathAndQueryWithoutPrefix()).thenReturn(PathAndQuery.parse(url));
     when(request.getMethod()).thenReturn(method);
     when(request.getClientIp()).thenReturn(clientIp);
     for (HttpHeader header : headers.all()) {
@@ -149,10 +156,19 @@ public class MockRequestBuilder {
     when(request.getAllHeaderKeys()).thenReturn(new LinkedHashSet<>(headers.keys()));
     when(request.containsHeader(Mockito.any(String.class))).thenReturn(false);
     when(request.getCookies()).thenReturn(cookies);
-    when(request.getBody()).thenReturn(body.getBytes());
+    when(request.getBody()).thenReturn(body.getBytes(UTF_8));
     when(request.getBodyAsString()).thenReturn(body);
     when(request.getBodyAsBase64()).thenReturn(bodyAsBase64);
+    when(request.getBodyEntity())
+        .thenReturn(
+            Entity.builder()
+                .setFormat(Format.fromContentTypeHeader(headers.getContentTypeHeader()))
+                .setCompression(CompressionType.NONE)
+                .setData(body.getBytes(UTF_8))
+                .build());
     when(request.getAbsoluteUrl()).thenReturn("http://localhost:8080" + url);
+    when(request.getTypedAbsoluteUrl())
+        .thenReturn(AbsoluteUrl.parse("http://localhost:8080" + url));
     when(request.isBrowserProxyRequest()).thenReturn(browserProxyRequest);
     when(request.isMultipart()).thenReturn(multiparts != null && !multiparts.isEmpty());
     when(request.getParts()).thenReturn(multiparts);

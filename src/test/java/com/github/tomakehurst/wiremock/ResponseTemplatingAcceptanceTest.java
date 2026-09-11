@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2025 Thomas Akehurst
+ * Copyright (C) 2016-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,15 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static com.github.tomakehurst.wiremock.testsupport.ServeEventChecks.assertMessageSubEventPresent;
 import static com.github.tomakehurst.wiremock.testsupport.TestFiles.defaultTestFilesRoot;
+import static com.github.tomakehurst.wiremock.testsupport.TestHttpHeader.withHeader;
+import static net.javacrumbs.jsonunit.JsonMatchers.jsonEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
+import com.github.tomakehurst.wiremock.testsupport.TestFiles;
 import com.github.tomakehurst.wiremock.testsupport.WireMatchers;
 import com.github.tomakehurst.wiremock.testsupport.WireMockResponse;
 import com.github.tomakehurst.wiremock.testsupport.WireMockTestClient;
@@ -263,7 +267,7 @@ public class ResponseTemplatingAcceptanceTest {
 
       WireMockResponse response = client.get("/jsonBody/template?qp=2");
 
-      assertThat(response.content(), is("{\"Key\":\"Hello world 2!\"}"));
+      assertThat(response.content(), jsonEquals("{\"Key\":\"Hello world 2!\"}"));
     }
 
     @Test
@@ -338,9 +342,10 @@ public class ResponseTemplatingAcceptanceTest {
       WireMockResponse response = client.get("/bad");
 
       assertThat(response.statusCode(), is(500));
-      assertThat(response.content(), is("1:2: java.lang.ArithmeticException: / by zero"));
+      assertThat(response.content(), is("[ERROR] 1:2: java.lang.ArithmeticException: / by zero"));
 
-      assertMessageSubEventPresent(wm, "ERROR", "1:2: java.lang.ArithmeticException: / by zero");
+      assertMessageSubEventPresent(
+          wm, "ERROR", "[ERROR] 1:2: java.lang.ArithmeticException: / by zero");
     }
 
     @Test
@@ -353,9 +358,52 @@ public class ResponseTemplatingAcceptanceTest {
       WireMockResponse response = client.get("/bad");
 
       assertThat(response.statusCode(), is(500));
-      assertThat(response.content(), is("1:2: could not find helper: 'add'"));
+      assertThat(
+          response.content(),
+          is(
+              """
+              [ERROR] 1:2: could not find helper: 'add'
+              {{add (jsonPath request.body '$.num1') (jsonPath request.body '$.num2')}}
+                ^
+              """));
 
-      assertMessageSubEventPresent(wm, "ERROR", "1:2: could not find helper: 'add'");
+      assertMessageSubEventPresent(
+          wm,
+          "ERROR",
+          """
+              [ERROR] 1:2: could not find helper: 'add'
+              {{add (jsonPath request.body '$.num1') (jsonPath request.body '$.num2')}}
+                ^
+              """);
+    }
+
+    @Test
+    void templatedContentEncodingAndContentTypeHeadersResolveAsExpected() {
+      wm.stubFor(
+          get("/templated-content-headers")
+              .willReturn(
+                  aResponse()
+                      .withBodyFile("example.txt.brotli")
+                      .withHeader("Content-Type", "{{request.headers.Accept}}")
+                      .withHeader("Content-Encoding", "{{request.headers.Accept-Encoding}}")));
+
+      WireMockResponse response =
+          client.get(
+              "/templated-content-headers",
+              withHeader("Accept", "application/json"),
+              withHeader("Accept-Encoding", "brotli"));
+
+      assertThat(response.statusCode(), is(200));
+      assertThat(response.firstHeader("Content-Type"), is("application/json"));
+      assertThat(response.firstHeader("Content-Encoding"), is("brotli"));
+
+      ServeEvent serveEvent =
+          wm.getAllServeEvents().stream()
+              .findFirst()
+              .orElseThrow(() -> new AssertionError("No ServeEvents found"));
+
+      byte[] expectedBody = TestFiles.fileBytes("test-file-root/__files/example.txt.brotli");
+      assertThat(serveEvent.getResponse().getBody(), is(expectedBody));
     }
   }
 

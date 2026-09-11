@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2025 Thomas Akehurst
+ * Copyright (C) 2016-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ import static com.github.tomakehurst.wiremock.core.WireMockApp.FILES_ROOT;
 import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
 import static com.github.tomakehurst.wiremock.testsupport.WireMatchers.equalsMultiLine;
 import static java.util.Arrays.asList;
+import static net.javacrumbs.jsonunit.JsonMatchers.jsonEquals;
 import static net.javacrumbs.jsonunit.JsonMatchers.jsonPartEquals;
 import static net.javacrumbs.jsonunit.JsonMatchers.jsonPartMatches;
-import static org.apache.hc.core5.http.ContentType.TEXT_PLAIN;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -55,13 +55,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.skyscreamer.jsonassert.JSONAssert;
 
 class AdminApiTest extends AcceptanceTestBase {
@@ -384,27 +385,16 @@ class AdminApiTest extends AcceptanceTestBase {
         is(404));
   }
 
-  @Test
-  void createStubMappingReturnsTheCreatedMapping() {
-    WireMockResponse response =
-        testClient.postJson(
-            "/__admin/mappings",
-            "{                                \n"
-                + "    \"name\": \"Teapot putter\",   \n"
-                + "    \"request\": {                 \n"
-                + "        \"method\": \"PUT\",       \n"
-                + "        \"url\": \"/put/this\"     \n"
-                + "    },                             \n"
-                + "    \"response\": {                \n"
-                + "        \"status\": 418            \n"
-                + "    }                              \n"
-                + "}");
+  @ParameterizedTest
+  @MethodSource("provideStubMappingJson")
+  void createStubMappingReturnsTheCreatedMapping(String stubJson) {
+    WireMockResponse response = testClient.postJson("/__admin/mappings", stubJson);
 
     assertThat(response.statusCode(), is(201));
     assertThat(response.firstHeader("Content-Type"), is("application/json"));
     String body = response.content();
     JsonAssertion.assertThat(body).field("id").matches("[a-z0-9\\-]{36}");
-    JsonAssertion.assertThat(body).field("name").isEqualTo("Teapot putter");
+    JsonAssertion.assertThat(body).field("name").isEqualTo("Basic Resource");
   }
 
   @Test
@@ -456,8 +446,7 @@ class AdminApiTest extends AcceptanceTestBase {
     assertThat(testClient.get("/stateful").content(), is("Initial"));
     assertThat(testClient.get("/stateful").content(), is("Final"));
 
-    WireMockResponse response =
-        testClient.post("/__admin/scenarios/reset", new StringEntity("", TEXT_PLAIN));
+    WireMockResponse response = testClient.post("/__admin/scenarios/reset");
 
     assertThat(response.content(), is("{}"));
     assertThat(response.firstHeader("Content-Type"), is("application/json"));
@@ -1467,6 +1456,32 @@ class AdminApiTest extends AcceptanceTestBase {
     assertThat(testClient.get("/one").statusCode(), is(404));
     assertThat(testClient.get("/two").statusCode(), is(200));
     assertThat(testClient.get("/three").statusCode(), is(404));
+  }
+
+  @Test
+  void getChannelByIdReturnsCorrectPayload() {
+    registerChannelProvider(
+        channelProvider().named("admin-api-test-provider").withDriver("in-memory"));
+    UUID channelId =
+        createFixedChannel(
+            fixedChannel().onProvider("admin-api-test-provider").named("admin-api-test-orders"));
+
+    WireMockResponse response = testClient.get("/__admin/channels/" + channelId);
+
+    assertThat(response.statusCode(), is(200));
+    assertThat(
+        response.content(),
+        jsonEquals(
+            """
+            {
+              "type": "fixed",
+              "id": "%s",
+              "open": true,
+              "providerName": "admin-api-test-provider",
+              "channelName": "admin-api-test-orders"
+            }
+            """
+                .formatted(channelId)));
   }
 
   public static class TestExtendedSettingsData {

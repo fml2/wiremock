@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2024 Thomas Akehurst
+ * Copyright (C) 2011-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import static com.github.tomakehurst.wiremock.testsupport.MappingJsonSamples.BIN
 import static com.github.tomakehurst.wiremock.testsupport.MappingJsonSamples.MAPPING_REQUEST_FOR_BINARY_BYTE_BODY;
 import static com.github.tomakehurst.wiremock.testsupport.MappingJsonSamples.MAPPING_REQUEST_FOR_BYTE_BODY;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static net.javacrumbs.jsonunit.JsonMatchers.jsonEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -153,7 +154,8 @@ public class MappingsAcceptanceTest extends AcceptanceTestBase {
 
     testClient.resetDefaultMappings();
 
-    getResponseAndAssert404Status("/resource/11");
+    WireMockResponse response = testClient.get("/resource/11");
+    assertThat(response.statusCode(), is(404));
     getResponseAndAssert200Status("/testmapping");
   }
 
@@ -189,24 +191,24 @@ public class MappingsAcceptanceTest extends AcceptanceTestBase {
     assertThat(response.statusCode(), is(200));
     assertThat(
         response.content(),
-        is(
+        jsonEquals(
             "{\"bignumber\":1234567890.12,\"integer_as_float\":2.0,\"array\":[1,2,3],\"integer\":2,\"key\":\"value\"}"));
   }
 
   @Test
-  public void appendsTransferEncodingHeaderIfNoContentLengthHeaderIsPresentInMapping()
-      throws Exception {
+  public void appendsTransferEncodingHeaderIfNoContentLengthHeaderIsPresentInMapping() {
     testClient.addResponse(
-        "{ 													\n"
-            + "	\"request\": {									\n"
-            + "		\"method\": \"GET\",						\n"
-            + "		\"url\": \"/with/body\"						\n"
-            + "	},												\n"
-            + "	\"response\": {									\n"
-            + "		\"status\": 200,							\n"
-            + "		\"body\": \"Some content\"					\n"
-            + "	}												\n"
-            + "}													");
+        """
+            {
+            	"request": {
+            		"method": "GET",
+            		"url": "/with/body"
+            	},
+            	"response": {
+            		"status": 200,
+            		"body": "Some content"
+            	}
+            }""");
 
     WireMockResponse response = testClient.get("/with/body");
 
@@ -214,22 +216,22 @@ public class MappingsAcceptanceTest extends AcceptanceTestBase {
   }
 
   @Test
-  public void responseContainsContentLengthAndChunkedEncodingHeadersIfItIsDefinedInTheMapping()
-      throws Exception {
+  public void responseContainsContentLengthAndChunkedEncodingHeadersIfItIsDefinedInTheMapping() {
     testClient.addResponse(
-        "{ 													\n"
-            + "	\"request\": {									\n"
-            + "		\"method\": \"GET\",						\n"
-            + "		\"url\": \"/with/body\"						\n"
-            + "	},												\n"
-            + "	\"response\": {									\n"
-            + "		\"status\": 200,							\n"
-            + "		\"headers\": {								\n"
-            + "			\"Content-Length\": \"12\"		        \n"
-            + "		},											\n"
-            + "		\"body\": \"Some content\"					\n"
-            + "	}												\n"
-            + "}													");
+        """
+            {
+            	"request": {
+            		"method": "GET",
+            		"url": "/with/body"
+            	},
+            	"response": {
+            		"status": 200,
+            		"headers": {
+            			"Content-Length": "12"
+            		},
+            		"body": "Some content"
+            	}
+            }""");
     WireMockResponse response = testClient.get("/with/body");
 
     assertThat(response.firstHeader("Content-Length"), is("12"));
@@ -241,11 +243,6 @@ public class MappingsAcceptanceTest extends AcceptanceTestBase {
   private void getResponseAndAssert200Status(String url) {
     WireMockResponse response = testClient.get(url);
     assertThat(response.statusCode(), is(200));
-  }
-
-  private void getResponseAndAssert404Status(String url) {
-    WireMockResponse response = testClient.get(url);
-    assertThat(response.statusCode(), is(404));
   }
 
   private void add200ResponseFor(String url) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Thomas Akehurst
+ * Copyright (C) 2025-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,26 +22,33 @@ import static com.github.tomakehurst.wiremock.client.WireMock.put;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.extension.StubLifecycleListener;
 import com.github.tomakehurst.wiremock.standalone.MappingsSource;
+import com.github.tomakehurst.wiremock.stubbing.StoreBackedStubMappings.RemoveStubMapping;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class RemoveStubMappingsTest {
 
+  StubLifecycleListener listener;
+
+  @BeforeEach
+  void init() {
+    listener = mock(StubLifecycleListener.class);
+    when(listener.beforeStubCreated(any())).thenCallRealMethod();
+    when(listener.beforeStubEdited(any(), any())).thenCallRealMethod();
+  }
+
   @Test
   void removingNonExistentStubsByIdDoesNotTriggerStubListeners() {
-    StubLifecycleListener listener = mock(StubLifecycleListener.class);
     WireMockServer wireMockServer =
         new WireMockServer(wireMockConfig().extensions(listener).dynamicPort());
     try {
@@ -60,10 +67,12 @@ class RemoveStubMappingsTest {
               get("/whatever").withId(existingStub1.getId()).build(),
               get("/whatever").withId(existingStub2.getId()).build()));
 
-      verify(listener).beforeStubRemoved(existingStub1);
-      verify(listener).beforeStubRemoved(existingStub2);
-      verify(listener).afterStubRemoved(existingStub1);
-      verify(listener).afterStubRemoved(existingStub2);
+      verify(listener)
+          .beforeStubsAltered(
+              List.of(new RemoveStubMapping(existingStub1), new RemoveStubMapping(existingStub2)));
+      verify(listener)
+          .afterStubsAltered(
+              List.of(new RemoveStubMapping(existingStub1), new RemoveStubMapping(existingStub2)));
       verifyNoMoreInteractions(listener);
       clearInvocations(listener);
 
@@ -79,7 +88,6 @@ class RemoveStubMappingsTest {
 
   @Test
   void removingNonExistentStubByRequestMatchDoesNotTriggerStubListeners() {
-    StubLifecycleListener listener = mock(StubLifecycleListener.class);
     WireMockServer wireMockServer =
         new WireMockServer(wireMockConfig().extensions(listener).dynamicPort());
     try {
@@ -95,10 +103,12 @@ class RemoveStubMappingsTest {
 
       wireMockServer.removeStubMappings(List.of(get("/").build(), post("/create").build()));
 
-      verify(listener).beforeStubRemoved(existingStub1);
-      verify(listener).afterStubRemoved(existingStub1);
-      verify(listener).beforeStubRemoved(existingStub2);
-      verify(listener).afterStubRemoved(existingStub2);
+      verify(listener)
+          .beforeStubsAltered(
+              List.of(new RemoveStubMapping(existingStub1), new RemoveStubMapping(existingStub2)));
+      verify(listener)
+          .afterStubsAltered(
+              List.of(new RemoveStubMapping(existingStub1), new RemoveStubMapping(existingStub2)));
       verifyNoMoreInteractions(listener);
       clearInvocations(listener);
 
@@ -182,11 +192,11 @@ class RemoveStubMappingsTest {
   @Test
   void stubsAreNotDeletedIfListenersPreventRemoval() {
     MappingsSource mappingsSource = mock();
-    StubLifecycleListener listener = mock(StubLifecycleListener.class);
     List<UUID> disallowedStubIds = List.of(UUID.randomUUID(), UUID.randomUUID());
     doThrow(new RuntimeException("stop that"))
         .when(listener)
         .beforeStubRemoved(argThat(stub -> disallowedStubIds.contains(stub.getId())));
+    doCallRealMethod().when(listener).beforeStubsAltered(any());
     WireMockServer wireMockServer =
         new WireMockServer(
             wireMockConfig().mappingSource(mappingsSource).extensions(listener).dynamicPort());

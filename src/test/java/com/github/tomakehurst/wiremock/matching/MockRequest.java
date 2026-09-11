@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2025 Thomas Akehurst
+ * Copyright (C) 2016-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,16 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 
 import com.github.tomakehurst.wiremock.MultipartParserLoader;
-import com.github.tomakehurst.wiremock.common.Urls;
-import com.github.tomakehurst.wiremock.common.url.PathParams;
+import com.github.tomakehurst.wiremock.common.entity.CompressionType;
+import com.github.tomakehurst.wiremock.common.entity.Entity;
+import com.github.tomakehurst.wiremock.common.entity.Format;
 import com.github.tomakehurst.wiremock.http.*;
 import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 import java.util.*;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+import org.wiremock.url.AbsoluteUrl;
+import org.wiremock.url.PathAndQuery;
 
 public class MockRequest implements Request {
 
@@ -35,14 +40,13 @@ public class MockRequest implements Request {
   private String scheme = "http";
   private String host = "my.domain";
   private int port = 80;
-  private String url = "/";
+  private @NonNull String url = "/";
 
-  private String absoluteUrl = null;
+  private @Nullable String absoluteUrl = null;
   private RequestMethod method = RequestMethod.ANY;
   private HttpHeaders headers = new HttpHeaders();
 
   private final Map<String, Cookie> cookies = new HashMap<>();
-  private final PathParams pathParams = new PathParams();
   private byte[] body;
   private String clientIp = "1.1.1.1";
   private Collection<Part> multiparts = null;
@@ -80,7 +84,7 @@ public class MockRequest implements Request {
     return this;
   }
 
-  public MockRequest absoluteUrl(String absoluteUrl) {
+  public MockRequest absoluteUrl(@Nullable String absoluteUrl) {
     this.absoluteUrl = absoluteUrl;
     return this;
   }
@@ -157,14 +161,24 @@ public class MockRequest implements Request {
   }
 
   @Override
-  public String getUrl() {
+  public @NonNull String getUrl() {
     return url;
   }
 
   @Override
-  public String getAbsoluteUrl() {
+  public @NonNull PathAndQuery getPathAndQueryWithoutPrefix() {
+    return PathAndQuery.parse(getUrl());
+  }
+
+  @Override
+  public @NonNull String getAbsoluteUrl() {
     String portPart = port == 80 || port == 443 ? "" : ":" + port;
     return getFirstNonNull(absoluteUrl, String.format("%s://%s%s%s", scheme, host, portPart, url));
+  }
+
+  @Override
+  public @NonNull AbsoluteUrl getTypedAbsoluteUrl() {
+    return AbsoluteUrl.parse(getAbsoluteUrl());
   }
 
   @Override
@@ -231,12 +245,6 @@ public class MockRequest implements Request {
   }
 
   @Override
-  public QueryParameter queryParameter(String key) {
-    Map<String, QueryParameter> queryParams = Urls.splitQueryFromUrl(url);
-    return queryParams.get(key);
-  }
-
-  @Override
   public FormParameter formParameter(String key) {
     return getFirstNonNull(formParameters.get(key), FormParameter.absent(key));
   }
@@ -259,6 +267,15 @@ public class MockRequest implements Request {
   @Override
   public String getBodyAsBase64() {
     return "";
+  }
+
+  @Override
+  public Entity getBodyEntity() {
+    return Entity.builder()
+        .setFormat(Format.fromContentTypeHeader(contentTypeHeader()))
+        .setCompression(CompressionType.NONE)
+        .setData(body != null ? body : new byte[0])
+        .build();
   }
 
   @Override

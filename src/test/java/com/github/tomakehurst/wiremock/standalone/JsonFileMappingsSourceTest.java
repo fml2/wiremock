@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2025 Thomas Akehurst
+ * Copyright (C) 2016-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@ import static com.github.tomakehurst.wiremock.testsupport.TestFiles.filePath;
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.tomakehurst.wiremock.common.ClasspathFileSource;
 import com.github.tomakehurst.wiremock.common.Json;
@@ -33,16 +32,14 @@ import com.github.tomakehurst.wiremock.common.NotWritableException;
 import com.github.tomakehurst.wiremock.common.SingleRootFileSource;
 import com.github.tomakehurst.wiremock.common.filemaker.FilenameMaker;
 import com.github.tomakehurst.wiremock.stubbing.InMemoryStubMappings;
-import com.github.tomakehurst.wiremock.stubbing.StoreBackedStubMappings;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
+import com.github.tomakehurst.wiremock.stubbing.StubMappings;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,7 +49,7 @@ class JsonFileMappingsSourceTest {
 
   @TempDir public File tempDir;
 
-  StoreBackedStubMappings stubMappings;
+  StubMappings stubMappings;
   JsonFileMappingsSource source;
   File stubMappingFile;
 
@@ -88,7 +85,7 @@ class JsonFileMappingsSourceTest {
   void loadsMappingsViaClasspathFileSource() {
     ClasspathFileSource fileSource = new ClasspathFileSource("jar-filesource");
     JsonFileMappingsSource source = new JsonFileMappingsSource(fileSource, new FilenameMaker());
-    StoreBackedStubMappings stubMappings = new InMemoryStubMappings();
+    StubMappings stubMappings = new InMemoryStubMappings();
 
     source.loadMappingsInto(stubMappings);
 
@@ -190,8 +187,7 @@ class JsonFileMappingsSourceTest {
   void savesStubMappingOriginallyLoadedFromSingleMappingFile() throws Exception {
     configureWithSingleMappingFile();
 
-    StubMapping firstStub = stubMappings.getAll().get(0);
-    firstStub.setName("New name");
+    StubMapping firstStub = stubMappings.getAll().get(0).transform(b -> b.setName("New name"));
     source.save(firstStub);
 
     assertThat(Files.readString(stubMappingFile.toPath()), containsString("New name"));
@@ -241,5 +237,36 @@ class JsonFileMappingsSourceTest {
         containsInAnyOrder(existingStub2File, newStub2File));
     assertThat(Files.readString(existingStub2File.toPath()), is(Json.writePrivate(newStub1)));
     assertThat(Files.readString(newStub2File.toPath()), is(Json.writePrivate(newStub2)));
+  }
+
+  @Test
+  void ignoresUuidFieldOnSingleStubJsonFiles() throws Exception {
+    stubMappingFile = File.createTempFile("with-uuid", ".json", tempDir);
+    String json =
+        // language=json
+        """
+            {
+              "id": "edf19376-0e08-4b27-8632-fb7852c9e62d",
+              "request": {
+                "url": "/",
+                "method": "GET"
+              },
+
+              "response": {
+                "status": 200
+              },
+
+              "uuid": "07150a3a-47ea-4182-9792-c49eb77b862e"
+            }
+            """;
+
+    Files.write(stubMappingFile.toPath(), json.getBytes());
+
+    assertDoesNotThrow(this::load);
+
+    Optional<StubMapping> maybeStub =
+        stubMappings.get(UUID.fromString("edf19376-0e08-4b27-8632-fb7852c9e62d"));
+    assertTrue(maybeStub.isPresent());
+    assertThat(maybeStub.get().getId().toString(), is("edf19376-0e08-4b27-8632-fb7852c9e62d"));
   }
 }

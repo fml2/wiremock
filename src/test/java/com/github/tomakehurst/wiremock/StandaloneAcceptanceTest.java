@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2025 Thomas Akehurst
+ * Copyright (C) 2011-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-public class StandaloneAcceptanceTest {
+public class StandaloneAcceptanceTest extends AcceptanceTestBase {
   private static final String FILES = "__files";
   private static final String MAPPINGS = "mappings";
 
@@ -74,7 +74,7 @@ public class StandaloneAcceptanceTest {
   private File filesDirectory;
 
   @BeforeEach
-  public void init() throws Exception {
+  public void init() {
     mappingsDirectory = tempFileRoot.resolve(MAPPINGS).toFile();
     filesDirectory = tempFileRoot.resolve(FILES).toFile();
     mappingsDirectory.mkdirs();
@@ -121,6 +121,13 @@ public class StandaloneAcceptanceTest {
     writeMappingFile("test-mapping-1.json", MAPPING_REQUEST);
     startRunner();
     assertThat(testClient.get("/resource/from/file").content(), is("Body from mapping file"));
+  }
+
+  @Test
+  void readsQueryMappingFromMappingsDir() {
+    writeMappingFile("test-mapping-1.json", MAPPING_REQUEST.replace("GET", "QUERY"));
+    startRunner();
+    assertThat(testClient.query("/resource/from/file").content(), is("Body from mapping file"));
   }
 
   @Test
@@ -187,7 +194,7 @@ public class StandaloneAcceptanceTest {
     assertThat(response.firstHeader("Content-Type"), startsWith("text/html"));
     assertThat(response.content(), containsString("<title>WireMock Recorder</title>"));
 
-    response = testClient.get("/__admin/recorder/lib/jquery-3.6.0.min.js");
+    response = testClient.get("/__admin/recorder/lib/jquery-4.0.0.min.js");
     assertThat(response.statusCode(), is(200));
     assertThat(response.firstHeader("Content-Type"), startsWith("text/javascript"));
   }

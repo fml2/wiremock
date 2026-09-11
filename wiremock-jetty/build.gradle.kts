@@ -3,7 +3,8 @@ plugins {
 }
 
 dependencies {
-    api(project(":wiremock-common"))
+    api(project(":wiremock-core"))
+    api(project(":wiremock-url:wiremock-url"))
 
     api(libs.jakarta.servlet.api)
 
@@ -13,13 +14,20 @@ dependencies {
     api(libs.jetty.io)
     api(libs.jetty.server)
     api(libs.jetty.util)
+    api(libs.jetty.websocket.jetty.api)
 
+    api(libs.jspecify)
+
+    implementation(project(":wiremock-core:certificate-generator"))
     implementation(libs.jetty.alpn.server)
     implementation(libs.jetty.ee11.servlets)
     implementation(libs.jetty.http)
     implementation(libs.jetty.http2.common)
     implementation(libs.jetty.http2.server)
 
+    implementation(libs.jetty.ee11.websocket.jetty.server)
+
+    runtimeOnly(libs.jetty.ee11.websockets)
     runtimeOnly(libs.jetty.alpn.java.client)
     runtimeOnly(libs.jetty.alpn.java.server)
     runtimeOnly(libs.jetty.ee11.webapp)

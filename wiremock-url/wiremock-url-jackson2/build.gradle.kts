@@ -1,0 +1,45 @@
+@file:Suppress("VulnerableLibrariesLocal")
+
+plugins {
+  id("wiremock.common-conventions")
+}
+
+tasks.jar {
+  archiveBaseName.set("wiremock-url-jackson2")
+}
+
+dependencies {
+  api(project(":wiremock-url:wiremock-url"))
+  api(project(":wiremock-url:wiremock-string-parser-jackson2"))
+
+  implementation(project(":wiremock-url:wiremock-string-parser"))
+
+  compileOnly("org.jspecify:jspecify:1.0.1")
+
+  testImplementation("com.fasterxml.jackson.core:jackson-core:2.5.0")
+  testImplementation("com.fasterxml.jackson.core:jackson-databind:2.5.0")
+  testImplementation("com.fasterxml.jackson.core:jackson-annotations:2.5.0")
+  testImplementation(platform("org.junit:junit-bom:5.14.4"))
+  testImplementation(libs.junit.jupiter.api)
+  testImplementation(libs.junit.jupiter.params)
+  testImplementation(libs.assertj.core)
+
+  testImplementation("io.github.classgraph:classgraph:4.8.195")
+
+  testRuntimeOnly(libs.junit.jupiter)
+  testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+publishing {
+  publications {
+    create<MavenPublication>("mavenJava") {
+      artifactId = tasks.jar.get().archiveBaseName.get()
+      from(components["java"])
+
+      pom {
+        name = "WireMock URL Jackson 2"
+        description = "Jackson 2 module for WireMock URL"
+      }
+    }
+  }
+}

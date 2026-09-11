@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    api(project(":wiremock-common"))
+    api(project(":wiremock-core"))
 
     api(libs.junit4)
 
@@ -12,7 +12,9 @@ dependencies {
     testImplementation(libs.apache.http5.core)
     testImplementation(libs.hamcrest)
     testImplementation(platform(libs.junit.bom))
+    testImplementation(project(":wiremock-httpclient-apache5"))
     testRuntimeOnly(libs.junit.vintage.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 tasks.jar {

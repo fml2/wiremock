@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2025 Thomas Akehurst
+ * Copyright (C) 2013-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import static org.hamcrest.Matchers.is;
 import com.github.tomakehurst.wiremock.common.SingleRootFileSource;
 import com.github.tomakehurst.wiremock.core.Options;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.testsupport.WireMockTestClient;
 import java.io.File;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -32,7 +32,7 @@ public class WireMockServerTests {
   @TempDir public File tempDir;
 
   @Test
-  public void instantiationWithEmptyFileSource() throws IOException {
+  public void instantiationWithEmptyFileSource() {
     Options options =
         new WireMockConfiguration().dynamicPort().fileSource(new SingleRootFileSource(tempDir));
 
@@ -104,5 +104,17 @@ public class WireMockServerTests {
     int port = wireMockServer.httpsPort();
 
     assertThat(wireMockServer.baseUrl(), is(String.format("https://localhost:%d", port)));
+  }
+
+  @Test
+  public void serverCanBeStartedFluently() {
+    WireMockServer wireMockServer = new WireMockServer(options().dynamicPort()).startServer();
+    try {
+      int port = wireMockServer.port();
+      assertThat(wireMockServer.baseUrl(), is(String.format("http://localhost:%d", port)));
+      assertThat(new WireMockTestClient(port).get("/").statusCode(), is(404));
+    } finally {
+      wireMockServer.stop();
+    }
   }
 }

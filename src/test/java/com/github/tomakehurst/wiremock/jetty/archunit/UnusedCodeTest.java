@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2025 Thomas Akehurst
+ * Copyright (C) 2021-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.github.tomakehurst.wiremock.jetty.archunit;
 
 import static com.tngtech.archunit.base.DescribedPredicate.describe;
 import static com.tngtech.archunit.base.DescribedPredicate.not;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.ANONYMOUS_CLASSES;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.assignableTo;
 import static com.tngtech.archunit.core.domain.JavaMember.Predicates.declaredIn;
 import static com.tngtech.archunit.core.domain.properties.HasName.Utils.namesOf;
@@ -27,7 +28,6 @@ import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
-import com.tngtech.archunit.core.domain.JavaCodeUnitAccess;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -50,8 +50,8 @@ import java.util.function.Predicate;
     })
 class UnusedCodeTest {
 
-  private static ArchCondition<? super JavaClass> beReferencedClass =
-      new ArchCondition<JavaClass>("be referenced") {
+  private static final ArchCondition<? super JavaClass> beReferencedClass =
+      new ArchCondition<>("be referenced") {
         @Override
         public void check(JavaClass javaClass, ConditionEvents events) {
           Set<JavaAccess<?>> accesses = new HashSet<>(javaClass.getAccessesToSelf());
@@ -82,15 +82,16 @@ class UnusedCodeTest {
                   not(
                       assignableTo(
                           com.github.tomakehurst.wiremock.standalone.WireMockServerRunner.class)))
+              .and(not(ANONYMOUS_CLASSES))
               .should(beReferencedClass)
               .as("should use all classes")
               .because("unused classes should be removed"));
 
-  private static ArchCondition<? super JavaMethod> beReferencedMethod =
-      new ArchCondition<JavaMethod>("be referenced") {
+  private static final ArchCondition<? super JavaMethod> beReferencedMethod =
+      new ArchCondition<>("be referenced") {
         @Override
         public void check(JavaMethod javaMethod, ConditionEvents events) {
-          Set<JavaCodeUnitAccess<?>> accesses = new HashSet<>(javaMethod.getAccessesToSelf());
+          Set<JavaAccess<?>> accesses = new HashSet<>(javaMethod.getAccessesToSelf());
           accesses.removeAll(javaMethod.getAccessesFromSelf());
           if (accesses.isEmpty()) {
             events.add(
@@ -128,16 +129,16 @@ class UnusedCodeTest {
                   describe(
                       "are not declared in super type",
                       input ->
-                          !input.getOwner().getAllRawSuperclasses().stream()
+                          input.getOwner().getAllRawSuperclasses().stream()
                               .flatMap(c -> c.getMethods().stream())
-                              .anyMatch(hasMatchingNameAndParameters(input))))
+                              .noneMatch(hasMatchingNameAndParameters(input))))
               .and(
                   describe(
                       "are not declared in interface",
                       input ->
-                          !input.getOwner().getAllRawInterfaces().stream()
+                          input.getOwner().getAllRawInterfaces().stream()
                               .flatMap(i -> i.getMethods().stream())
-                              .anyMatch(hasMatchingNameAndParameters(input))))
+                              .noneMatch(hasMatchingNameAndParameters(input))))
               .and()
               .doNotHaveName("main")
               .and()
@@ -181,16 +182,16 @@ class UnusedCodeTest {
               describe(
                   "are not declared in super type",
                   input ->
-                      !input.getOwner().getAllRawSuperclasses().stream()
+                      input.getOwner().getAllRawSuperclasses().stream()
                           .flatMap(c -> c.getMethods().stream())
-                          .anyMatch(hasMatchingNameAndParameters(input))))
+                          .noneMatch(hasMatchingNameAndParameters(input))))
           .and(
               describe(
                   "are not declared in interface",
                   input ->
-                      !input.getOwner().getAllRawInterfaces().stream()
+                      input.getOwner().getAllRawInterfaces().stream()
                           .flatMap(i -> i.getMethods().stream())
-                          .anyMatch(hasMatchingNameAndParameters(input))))
+                          .noneMatch(hasMatchingNameAndParameters(input))))
           .and()
           .haveNameNotContaining("lambda")
           .and()

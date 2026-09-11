@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2025 Thomas Akehurst
+ * Copyright (C) 2011-2026 Thomas Akehurst
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import static com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder.r
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.core.WireMockApp.FILES_ROOT;
 import static com.github.tomakehurst.wiremock.core.WireMockApp.MAPPINGS_ROOT;
+import static com.github.tomakehurst.wiremock.core.WireMockApp.MESSAGE_MAPPINGS_ROOT;
 import static com.github.tomakehurst.wiremock.http.RequestMethod.ANY;
 import static com.github.tomakehurst.wiremock.matching.RequestPatternBuilder.newRequestPattern;
 import static java.lang.System.out;
@@ -72,6 +73,8 @@ public class WireMockServerRunner {
     filesFileSource.createIfNecessary();
     FileSource mappingsFileSource = fileSource.child(MAPPINGS_ROOT);
     mappingsFileSource.createIfNecessary();
+    FileSource messageMappingsFileSource = fileSource.child(MESSAGE_MAPPINGS_ROOT);
+    messageMappingsFileSource.createIfNecessary();
 
     wireMockServer = new WireMockServer(options);
 
@@ -143,9 +146,13 @@ public class WireMockServerRunner {
           RequestPattern requestPattern = newRequestPattern(ANY, anyUrl()).build();
           ResponseDefinition responseDef = responseDefinition().proxiedFrom(baseUrl).build();
 
-          StubMapping proxyBasedMapping = new StubMapping(requestPattern, responseDef);
-          proxyBasedMapping.setPriority(
-              10); // Make it low priority so that existing stubs will take precedence
+          StubMapping proxyBasedMapping =
+              StubMapping.builder()
+                  .setRequest(requestPattern)
+                  .setResponse(responseDef)
+                  .setPriority(10)
+                  .build();
+
           stubMappings.addMapping(proxyBasedMapping);
         });
   }
@@ -160,6 +167,7 @@ public class WireMockServerRunner {
           try {
             Runtime.getRuntime().removeShutdownHook(shutdownHook);
           } catch (IllegalStateException e) {
+            // ignore
           }
         }
       }

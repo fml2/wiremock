@@ -1,0 +1,89 @@
+/*
+ * Copyright (C) 2011-2026 Thomas Akehurst
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.github.tomakehurst.wiremock.common;
+
+import com.github.tomakehurst.wiremock.http.QueryParameter;
+import com.github.tomakehurst.wiremock.matching.UrlPattern;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+import org.wiremock.url.PathAndQuery;
+import org.wiremock.url.Query;
+
+public class Urls {
+
+  private Urls() {}
+
+  public static Map<String, QueryParameter> toQueryParameterMap(Query query) {
+    return query.asDecodedMap().entrySet().stream()
+        .collect(
+            Collectors.toUnmodifiableMap(
+                Entry::getKey, e -> new QueryParameter(e.getKey(), e.getValue())));
+  }
+
+  public static String urlToPathParts(PathAndQuery uri) {
+    List<String> uriPathNodes =
+        uri.getPath().getSegments().stream()
+            .filter(s -> !s.isEmpty())
+            .map(Object::toString)
+            .toList();
+    int nodeCount = uriPathNodes.size();
+
+    return nodeCount > 0 ? String.join("-", uriPathNodes) : "";
+  }
+
+  /**
+   * Normalises the value matched by any kind of {@link UrlPattern} (e.g. one created via {@code
+   * urlEqualTo}, {@code urlMatching}, {@code urlPathEqualTo}, {@code urlPathMatching} or {@code
+   * urlPathTemplate}) into its path segments.
+   *
+   * <p>This works generically across all current and future {@link UrlPattern} subtypes by parsing
+   * the matcher's own {@code toString()} description, rather than switching on specific pattern
+   * classes.
+   */
+  public static List<String> urlPatternToPathSegments(UrlPattern urlPattern) {
+    if (!urlPattern.isSpecified()) {
+      return List.of();
+    }
+
+    String pathOnly = getPathPart(urlPattern);
+    return Arrays.stream(pathOnly.split("/")).filter(part -> !part.isEmpty()).toList();
+  }
+
+  public static String getPathPart(final UrlPattern urlPattern) {
+    final String expected = urlPattern.getExpected();
+    final String separator = urlPattern.isRegex() ? "\\?" : "?";
+
+    final int pos = expected.indexOf(separator);
+    if (pos == -1) {
+      return expected;
+    }
+
+    return expected.substring(0, pos + separator.length() - 1);
+  }
+
+  /**
+   * Normalises the value matched by any kind of {@link UrlPattern} into a set of dash-joined path
+   * parts, e.g. for use in a human-readable name.
+   *
+   * @see #urlPatternToPathSegments(UrlPattern)
+   */
+  public static String urlPatternToPathParts(UrlPattern urlPattern) {
+    return String.join("-", urlPatternToPathSegments(urlPattern));
+  }
+}
